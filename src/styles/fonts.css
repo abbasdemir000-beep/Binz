@@ -1,0 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Noto+Sans+Arabic:wght@100..900&display=swap');
+
+:root {
+  --font-plus-jakarta: "Plus Jakarta Sans", serif;
+  --font-noto-arabic: "Noto Sans Arabic", serif;
+}

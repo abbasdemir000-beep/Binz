@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Binz Full Frontend</title>
+  <style>
+    *{box-sizing:border-box;font-family:Arial,Tahoma,sans-serif}
+    body{margin:0;background:#eef1f5;color:#121212}
+    .app{max-width:430px;margin:auto;min-height:100vh;background:#fff;position:relative;overflow:hidden;padding-bottom:80px}
+    .hero{background:linear-gradient(135deg,#ff7a00,#ff9f2e);color:#fff;padding:24px 18px 28px;border-radius:0 0 32px 32px}
+    .hero h1{margin:0;font-size:38px;letter-spacing:.5px}.hero p{margin:6px 0 0;opacity:.95}
+    .box{padding:15px}.card{background:#fff;border-radius:22px;padding:15px;margin:12px 0;box-shadow:0 8px 22px #00000012;border:1px solid #eee}
+    input,select,textarea,button{width:100%;padding:13px;margin:7px 0;border-radius:15px;border:1px solid #ddd;font-size:15px;background:#fff}
+    button{border:none;background:#ff7a00;color:#fff;font-weight:bold;cursor:pointer}.ghost{background:#f2f3f5;color:#222}.dark{background:#121212}.danger{background:#e53935}.ok{background:#009f5d}
+    .row{display:flex;gap:8px}.row>*{flex:1}.hidden{display:none!important}.small{font-size:13px;color:#666}.title{margin:4px 0 8px}
+    .langs{display:flex;gap:8px;margin-top:14px}.langs button{font-size:13px;padding:10px;background:#ffffff33;border:1px solid #ffffff55}
+    .station{position:relative;overflow:hidden;min-height:128px}.overlay{position:absolute;inset:0;opacity:.28}.content{position:relative;z-index:1}
+    .green{background:#00b050}.yellow{background:#ffd400}.red{background:#e53935}.gray{background:#9e9e9e}
+    .badge{display:inline-block;padding:5px 10px;border-radius:30px;background:#111;color:#fff;font-size:12px;margin:2px}.percent{font-size:30px;font-weight:900;margin:8px 0}
+    .map{height:190px;border-radius:24px;background:linear-gradient(45deg,#dfe8e2,#f7faf8);position:relative;overflow:hidden;border:1px solid #ddd}
+    .road{position:absolute;background:#c6ccd2;border-radius:20px}.r1{width:120%;height:24px;top:80px;left:-30px;transform:rotate(-18deg)}.r2{width:24px;height:120%;top:-20px;left:180px;transform:rotate(18deg)}
+    .pin{position:absolute;width:24px;height:24px;border-radius:50% 50% 50% 0;background:#ff7a00;transform:rotate(-45deg);box-shadow:0 4px 10px #0003}.pin span{display:block;transform:rotate(45deg);font-size:12px;text-align:center;color:white;line-height:24px}
+    .bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:430px;width:100%;height:68px;background:#fff;border-top:1px solid #eee;display:flex;justify-content:space-around;align-items:center;box-shadow:0 -6px 20px #0001;z-index:10}.bottom button{background:none;color:#333;margin:0;padding:8px;font-size:12px}.fab{width:54px!important;height:54px;border-radius:50%!important;background:#ff7a00!important;color:white!important;font-size:24px!important;margin-top:-30px!important}
+    .pending{border:1px dashed #ff7a00;background:#fff8ef}.adminItem{border-right:5px solid #ff7a00}.ltr{direction:ltr;text-align:left}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="hero">
+    <h1>Binz</h1><p id="subtitle">تطبيق زحام محطات البنزين</p>
+    <div class="langs"><button onclick="setLang('ar')">عربي</button><button onclick="setLang('ku')">کوردی</button><button onclick="setLang('en')">English</button></div>
+  </div>
+
+  <section id="login" class="box page">
+    <div class="card">
+      <h2 id="loginTitle">تسجيل الدخول</h2>
+      <input id="phone" placeholder="رقم الهاتف" />
+      <button onclick="openPage('home')" id="loginBtn">دخول</button>
+      <button class="ghost" onclick="openPage('home')" id="guestBtn">دخول كضيف</button>
+    </div>
+  </section>
+
+  <section id="home" class="box page hidden">
+    <div class="card">
+      <h2 id="cityTitle">اختر المدينة</h2>
+      <select id="city" onchange="renderAll()">
+        <option>كركوك</option><option>أربيل</option><option>السليمانية</option><option>بغداد</option><option>الموصل</option><option>البصرة</option><option>النجف</option><option>كربلاء</option>
+      </select>
+    </div>
+    <div class="map"><div class="road r1"></div><div class="road r2"></div><div class="pin" style="top:50px;left:70px"><span>⛽</span></div><div class="pin" style="top:120px;left:230px;background:#e53935"><span>⛽</span></div><div class="pin" style="top:85px;left:320px;background:#00b050"><span>⛽</span></div></div>
+    <h3 class="title" id="nearTitle">المحطات القريبة</h3><div id="stations"></div>
+  </section>
+
+  <section id="detail" class="box page hidden"><div id="detailBox"></div></section>
+
+  <section id="add" class="box page hidden">
+    <div class="card pending">
+      <h2 id="addTitle">إضافة محطة جديدة</h2>
+      <input id="sName" placeholder="اسم المحطة" />
+      <input id="sAddress" placeholder="العنوان" />
+      <select id="sCity"><option>كركوك</option><option>أربيل</option><option>السليمانية</option><option>بغداد</option><option>الموصل</option><option>البصرة</option></select>
+      <select id="sType"><option value="حكومية">حكومية</option><option value="أهلية">أهلية</option></select>
+      <textarea id="sNote" placeholder="ملاحظة اختيارية"></textarea>
+      <button onclick="submitStation()" id="sendBtn">إرسال للمراجعة</button>
+    </div>
+  </section>
+
+  <section id="favorites" class="box page hidden"><h2 id="favTitle">المفضلة</h2><div id="favList"></div></section>
+
+  <section id="admin" class="box page hidden"><h2 id="adminTitle">مراجعة المحطات</h2><div id="adminList"></div></section>
+
+  <div class="bottom hidden" id="nav">
+    <button onclick="openPage('home')" id="navHome">الرئيسية</button>
+    <button onclick="openPage('favorites')" id="navFav">المفضلة</button>
+    <button class="fab" onclick="openPage('add')">+</button>
+    <button onclick="openPage('admin')" id="navAdmin">الأدمن</button>
+  </div>
+</div>
+<script>
+const T={ar:{dir:'rtl',sub:'تطبيق زحام محطات البنزين',login:'تسجيل الدخول',phone:'رقم الهاتف',enter:'دخول',guest:'دخول كضيف',city:'اختر المدينة',near:'المحطات القريبة',wait:'وقت الانتظار',last:'آخر تحديث',report:'تبليغ عن الزحام',check:'أنا بالمحطة',fav:'المفضلة',admin:'الأدمن',add:'إضافة محطة جديدة',send:'إرسال للمراجعة',pending:'بانتظار الموافقة',approve:'موافقة',reject:'رفض',home:'الرئيسية'},ku:{dir:'rtl',sub:'قەرەباڵغی وێستگەی بەنزین',login:'چوونەژوورەوە',phone:'ژمارەی مۆبایل',enter:'چوونەژوورەوە',guest:'وەک میوان',city:'شار هەڵبژێرە',near:'وێستگە نزیکەکان',wait:'کاتی چاوەڕوانی',last:'دوایین نوێکردنەوە',report:'ڕاپۆرتی قەرەباڵغی',check:'لە وێستگەکەم',fav:'دڵخوازەکان',admin:'ئەدمین',add:'زیادکردنی وێستگە',send:'ناردن بۆ پێداچوونەوە',pending:'چاوەڕوانی پەسەندکردن',approve:'پەسەند',reject:'ڕەتکردنەوە',home:'سەرەکی'},en:{dir:'ltr',sub:'Live fuel station queue app',login:'Login',phone:'Phone number',enter:'Enter',guest:'Continue as guest',city:'Choose city',near:'Nearby stations',wait:'Wait time',last:'Last update',report:'Report crowd',check:'I am at station',fav:'Favorites',admin:'Admin',add:'Add new station',send:'Send for review',pending:'Pending review',approve:'Approve',reject:'Reject',home:'Home'}};
+let lang='ar', selected=null, favs=[], pending=[];
+let stations=[{id:1,name:'محطة الشرقية',city:'كركوك',type:'حكومية',crowd:42,wait:'20 دقيقة',fresh:'2 دقيقة'},{id:2,name:'محطة عقبة بن نافع',city:'كركوك',type:'حكومية',crowd:72,wait:'90 دقيقة',fresh:'5 دقائق'},{id:3,name:'KurdNeft KN01',city:'أربيل',type:'حكومية',crowd:55,wait:'45 دقيقة',fresh:'3 دقائق'},{id:4,name:'KurdNeft KN09',city:'أربيل',type:'حكومية',crowd:25,wait:'10 دقائق',fresh:'8 دقائق'},{id:5,name:'Darwaza Oil',city:'السليمانية',type:'حكومية',crowd:63,wait:'70 دقيقة',fresh:'4 دقائق'},{id:6,name:'Qaiwan 1 Gas Station',city:'السليمانية',type:'حكومية',crowd:null,wait:'غير معروف',fresh:'قديم'}];
+function setLang(l){lang=l;document.documentElement.dir=T[l].dir;document.documentElement.lang=l;subtitle.innerText=T[l].sub;loginTitle.innerText=T[l].login;phone.placeholder=T[l].phone;loginBtn.innerText=T[l].enter;guestBtn.innerText=T[l].guest;cityTitle.innerText=T[l].city;nearTitle.innerText=T[l].near;addTitle.innerText=T[l].add;sendBtn.innerText=T[l].send;favTitle.innerText=T[l].fav;adminTitle.innerText=T[l].admin;navHome.innerText=T[l].home;navFav.innerText=T[l].fav;navAdmin.innerText=T[l].admin;renderAll()}
+function openPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');if(id!=='login')nav.classList.remove('hidden');renderAll()}
+function c(x){if(x===null)return'gray';if(x<50)return'green';if(x<60)return'yellow';return'red'}
+function stationCard(s){return `<div class="card station" onclick="showDetail(${s.id})"><div class="overlay ${c(s.crowd)}"></div><div class="content"><h3>${s.name}</h3><span class="badge">${s.type}</span><div class="percent">${s.crowd===null?'--':s.crowd+'%'}</div><p class="small">${T[lang].wait}: ${s.wait}</p><p class="small">${T[lang].last}: ${s.fresh}</p></div></div>`}
+function renderStations(){stations.innerHTML=''}
+function renderAll(){let box=document.getElementById('stations');if(box){box.innerHTML=stations.filter(s=>s.city===city.value).map(stationCard).join('')||'<p class="small">No stations</p>'}renderFav();renderAdmin()}
+function showDetail(id){selected=stations.find(s=>s.id===id);detailBox.innerHTML=`<div class="card station"><div class="overlay ${c(selected.crowd)}"></div><div class="content"><h2>${selected.name}</h2><span class="badge">${selected.city}</span><span class="badge">${selected.type}</span><div class="percent">${selected.crowd===null?'--':selected.crowd+'%'}</div><p>${T[lang].wait}: ${selected.wait}</p><p>${T[lang].last}: ${selected.fresh}</p><button onclick="reportCrowd(30)" class="ok">0-49%</button><button onclick="reportCrowd(55)">50-59%</button><button onclick="reportCrowd(80)" class="danger">60%+</button><button class="dark" onclick="addFav(${selected.id})">${T[lang].fav}</button></div></div>`;openPage('detail')}
+function reportCrowd(v){selected.crowd=v;selected.wait=v<50?'20 دقيقة':v<60?'45 دقيقة':'90 دقيقة';selected.fresh='الآن';showDetail(selected.id)}
+function addFav(id){if(!favs.includes(id))favs.push(id);alert('Saved')}
+function renderFav(){favList.innerHTML=favs.map(id=>stations.find(s=>s.id===id)).filter(Boolean).map(stationCard).join('')||'<p class="small">Empty</p>'}
+function submitStation(){if(!sName.value.trim()){alert('Write station name');return}pending.push({id:Date.now(),name:sName.value,city:sCity.value,type:sType.value,address:sAddress.value,note:sNote.value});alert(T[lang].pending);sName.value=sAddress.value=sNote.value='';openPage('home')}
+function renderAdmin(){adminList.innerHTML=pending.map(p=>`<div class="card adminItem"><h3>${p.name}</h3><p>${p.city} - ${p.type}</p><p class="small">${p.address}</p><button onclick="approve(${p.id})">${T[lang].approve}</button><button class="danger" onclick="rejectP(${p.id})">${T[lang].reject}</button></div>`).join('')||'<p class="small">No pending stations</p>'}
+function approve(id){let p=pending.find(x=>x.id===id);stations.push({id:p.id,name:p.name,city:p.city,type:p.type,crowd:null,wait:T[lang].pending,fresh:T[lang].pending});pending=pending.filter(x=>x.id!==id);renderAll()}
+function rejectP(id){pending=pending.filter(x=>x.id!==id);renderAll()}
+setLang('ar');
+</script>
+</body>
+</html>
