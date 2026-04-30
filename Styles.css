@@ -1,0 +1,10 @@
+body{margin:0;background:#eef1f5;font-family:Arial}
+.app{max-width:430px;margin:auto;background:#fff;min-height:100vh}
+.hero{background:#ff7a00;color:white;padding:20px}
+.card{background:#fff;padding:15px;border-radius:15px;margin:10px;box-shadow:0 4px 10px #0001}
+button{background:#ff7a00;color:white;border:none;padding:10px;border-radius:10px}
+.hidden{display:none}
+.station{padding:10px;border-radius:10px;margin:10px;background:#f9f9f9}
+.green{background:#00b05033}
+.yellow{background:#ffd40033}
+.red{background:#e5393533}
