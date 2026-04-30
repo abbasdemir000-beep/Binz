@@ -4,68 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Binz</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛽</text></svg>" />
 </head>
 <body>
-  <main class="app">
-    <section class="hero">
-      <h1>Binz</h1>
-      <p id="subtitle">تطبيق زحام محطات البنزين</p>
-
-      <div class="langs">
-        <button onclick="setLang('ar')">عربي</button>
-        <button onclick="setLang('ku')">کوردی</button>
-        <button onclick="setLang('en')">EN</button>
-      </div>
-    </section>
-
-    <section id="login" class="page box">
-      <div class="card">
-        <h2 id="loginTitle">تسجيل الدخول</h2>
-        <input id="phone" placeholder="رقم الهاتف" />
-        <button onclick="openPage('home')" id="loginBtn">دخول</button>
-        <button class="ghost" onclick="openPage('home')" id="guestBtn">دخول كضيف</button>
-      </div>
-    </section>
-
-    <section id="home" class="page box hidden">
-      <div class="card">
-        <h2 id="cityTitle">اختر المدينة</h2>
-        <select id="city" onchange="renderAll()">
-          <option>كركوك</option>
-          <option>أربيل</option>
-          <option>السليمانية</option>
-          <option>بغداد</option>
-          <option>الموصل</option>
-          <option>البصرة</option>
-        </select>
-      </div>
-
-      <h3 id="nearTitle">المحطات القريبة</h3>
-      <div id="stations"></div>
-    </section>
-
-    <section id="add" class="page box hidden">
-      <div class="card">
-        <h2 id="addTitle">إضافة محطة جديدة</h2>
-        <input id="sName" placeholder="اسم المحطة" />
-        <input id="sAddress" placeholder="العنوان" />
-        <select id="sCity">
-          <option>كركوك</option>
-          <option>أربيل</option>
-          <option>السليمانية</option>
-          <option>بغداد</option>
-        </select>
-        <button onclick="submitStation()" id="sendBtn">إرسال للمراجعة</button>
-      </div>
-    </section>
-
-    <nav id="nav" class="bottom hidden">
-      <button onclick="openPage('home')">الرئيسية</button>
-      <button class="fab" onclick="openPage('add')">+</button>
-    </nav>
-  </main>
-
-  <script src="app.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
