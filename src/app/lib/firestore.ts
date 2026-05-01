@@ -145,7 +145,7 @@ export async function getFavoriteStations(ids: string[]): Promise<Station[]> {
 
 export async function seedInitialData(): Promise<void> {
   const snap = await getDocs(collection(db, 'stations'));
-  if (!snap.empty) return;
+  if (snap.size >= 10) return;
 
   const batch = writeBatch(db);
   mockStations.forEach((s) => {
