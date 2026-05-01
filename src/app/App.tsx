@@ -15,7 +15,7 @@ function AppBootstrap() {
         await signInAnonymously(auth);
         return;
       }
-      try { await seedInitialData(); } catch { /* already seeded */ }
+      try { await seedInitialData(); } catch (e) { console.error('Seed failed:', e); }
       unsub();
     });
     return unsub;
