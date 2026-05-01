@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { StationCard } from '../components/StationCard';
 import { cities, type Station } from '../lib/data';
@@ -13,15 +15,24 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(!!auth.currentUser);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) setAuthReady(true);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
     setLoading(true);
     const unsub = subscribeToStationsByCity(selectedCity, (data) => {
       setStations(data);
       setLoading(false);
     });
     return unsub;
-  }, [selectedCity]);
+  }, [selectedCity, authReady]);
 
   const filtered = stations.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -69,7 +80,6 @@ export default function Home() {
       </header>
 
       <main className="px-5 py-6">
-        {/* Map visualization */}
         <div className="mb-8 overflow-hidden rounded-[32px] h-48 bg-slate-100 border border-gray-200 relative shadow-inner">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#e5e7eb_2px,transparent_2px)] [background-size:16px_16px]" />
           <div className="absolute top-[40%] left-[-20%] w-[140%] h-8 bg-gray-300 -rotate-12 shadow-sm" />
