@@ -145,7 +145,7 @@ export async function getFavoriteStations(ids: string[]): Promise<Station[]> {
 
 export async function seedInitialData(): Promise<void> {
   const snap = await getDocs(collection(db, 'stations'));
-  if (!snap.empty) throw new Error('Stations already exist. Clear Firestore first.');
+  if (!snap.empty) return;
 
   const batch = writeBatch(db);
   mockStations.forEach((s) => {

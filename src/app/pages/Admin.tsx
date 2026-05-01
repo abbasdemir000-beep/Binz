@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { signInAnonymously } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { useLanguage } from '../context/LanguageContext';
 import {
   subscribeToPendingStations, approveStation,
@@ -52,6 +54,7 @@ export default function Admin() {
   const handleSeed = async () => {
     setSeeding(true);
     try {
+      if (!auth.currentUser) await signInAnonymously(auth);
       await seedInitialData();
       toast.success('16 sample stations added across all 8 cities!');
     } catch (err: any) {
