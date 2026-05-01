@@ -1,22 +1,66 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { motion } from 'motion/react';
-import { Phone, LogIn, UserCircle } from 'lucide-react';
+import { Phone, LogIn, UserCircle, KeyRound } from 'lucide-react';
+import { toast } from 'sonner';
+import type { ConfirmationResult } from 'firebase/auth';
 
 export default function Login() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
+  const { sendOTP, confirmOTP, loginAnonymously } = useAuth();
 
-  const handleLogin = () => {
-    // In a real app, we'd validate and authenticate
-    navigate('/home');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [busy, setBusy] = useState(false);
+  const confirmRef = useRef<ConfirmationResult | null>(null);
+
+  const handleSendOTP = async () => {
+    if (!phone.trim()) return;
+    setBusy(true);
+    try {
+      confirmRef.current = await sendOTP(phone.trim());
+      setStep('otp');
+      toast.success('OTP sent!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send OTP');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmOTP = async () => {
+    if (!otp.trim() || !confirmRef.current) return;
+    setBusy(true);
+    try {
+      await confirmOTP(confirmRef.current, otp.trim());
+      navigate('/home');
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid OTP');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setBusy(true);
+    try {
+      await loginAnonymously();
+      navigate('/home');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to continue as guest');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center">
+      <div id="recaptcha-container" />
       <div className="w-full max-w-[430px] flex flex-col min-h-screen">
         <header className="bg-gradient-to-br from-orange-500 to-orange-400 p-8 rounded-b-[40px] shadow-lg">
           <motion.div
@@ -38,38 +82,75 @@ export default function Login() {
             className="bg-white rounded-[32px] p-8 shadow-xl shadow-gray-200/50 border border-gray-100"
           >
             <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('login')}</h2>
-            
+
             <div className="space-y-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 start-4 flex items-center pointer-events-none">
-                  <Phone size={18} className="text-gray-400" />
-                </div>
-                <input
-                  type="tel"
-                  placeholder={t('phone')}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 ps-12 pe-4 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
-                />
-              </div>
+              {step === 'phone' ? (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 start-4 flex items-center pointer-events-none">
+                      <Phone size={18} className="text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      placeholder={t('phone')}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendOTP()}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 ps-12 pe-4 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendOTP}
+                    disabled={busy}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-200 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                  >
+                    <LogIn size={20} />
+                    {busy ? t('loading') : t('enter')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-center text-gray-500">Code sent to <b>{phone}</b></p>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 start-4 flex items-center pointer-events-none">
+                      <KeyRound size={18} className="text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      placeholder="6-digit code"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleConfirmOTP()}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 ps-12 pe-4 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={handleConfirmOTP}
+                    disabled={busy}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-200 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                  >
+                    <KeyRound size={20} />
+                    {busy ? t('loading') : 'Verify Code'}
+                  </button>
+                  <button
+                    onClick={() => { setStep('phone'); setOtp(''); }}
+                    className="w-full text-gray-400 text-sm py-2 hover:text-gray-600 transition-colors"
+                  >
+                    ← Change number
+                  </button>
+                </>
+              )}
 
-              <button
-                onClick={handleLogin}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-200 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-              >
-                <LogIn size={20} />
-                {t('enter')}
-              </button>
-
-              <div className="flex items-center gap-4 my-6">
+              <div className="flex items-center gap-4 my-2">
                 <div className="flex-1 h-px bg-gray-100" />
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">OR</span>
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
 
               <button
-                onClick={() => navigate('/home')}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                onClick={handleGuest}
+                disabled={busy}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
               >
                 <UserCircle size={20} />
                 {t('guest')}

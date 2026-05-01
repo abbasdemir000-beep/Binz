@@ -1,14 +1,28 @@
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { StationCard } from '../components/StationCard';
-import { mockStations } from '../lib/data';
+import { type Station } from '../lib/data';
+import { subscribeToFavorites, getFavoriteStations } from '../lib/firestore';
 import { motion } from 'motion/react';
-import { Heart } from 'lucide-react';
+import { Heart, Loader2 } from 'lucide-react';
 
 export default function Favorites() {
   const { t } = useLanguage();
-  
-  // Mock favorites - in a real app these would be in state or DB
-  const favorites = mockStations.slice(0, 2);
+  const { user } = useAuth();
+  const [stations, setStations] = useState<Station[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+
+    const unsub = subscribeToFavorites(user.uid, async (ids) => {
+      const favStations = await getFavoriteStations(ids);
+      setStations(favStations);
+      setLoading(false);
+    });
+    return unsub;
+  }, [user]);
 
   return (
     <div className="pb-24">
@@ -18,9 +32,13 @@ export default function Favorites() {
       </header>
 
       <main className="px-6 py-8">
-        <div className="space-y-4">
-          {favorites.length > 0 ? (
-            favorites.map((s, idx) => (
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 size={32} className="text-orange-500 animate-spin" />
+          </div>
+        ) : stations.length > 0 ? (
+          <div className="space-y-4">
+            {stations.map((s, idx) => (
               <motion.div
                 key={s.id}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -29,17 +47,17 @@ export default function Favorites() {
               >
                 <StationCard station={s} />
               </motion.div>
-            ))
-          ) : (
-            <div className="text-center py-20 flex flex-col items-center">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Heart size={32} className="text-gray-300" />
-              </div>
-              <p className="text-gray-400 font-bold">{t('noFavs')}</p>
-              <p className="text-gray-400 text-sm mt-1">Add stations to see them here</p>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 flex flex-col items-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Heart size={32} className="text-gray-300" />
             </div>
-          )}
-        </div>
+            <p className="text-gray-400 font-bold">{t('noFavs')}</p>
+            <p className="text-gray-400 text-sm mt-1">Tap the ♥ on a station to save it here</p>
+          </div>
+        )}
       </main>
     </div>
   );

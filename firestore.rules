@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /stations/{stationId} {
+      allow read: if true;
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['crowd', 'wait', 'fresh']);
+      allow create, delete: if false;
+    }
+
+    match /pendingStations/{pendingId} {
+      allow read, delete: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    match /userFavorites/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

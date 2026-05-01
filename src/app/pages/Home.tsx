@@ -1,19 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { StationCard } from '../components/StationCard';
-import { cities, mockStations } from '../lib/data';
+import { cities, type Station } from '../lib/data';
+import { subscribeToStationsByCity } from '../lib/firestore';
 import { motion } from 'motion/react';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin, Search, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Home() {
   const { t } = useLanguage();
   const [selectedCity, setSelectedCity] = useState(cities[0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stations, setStations] = useState<Station[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredStations = mockStations.filter(
-    (s) => s.city === selectedCity && 
-    (s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    setLoading(true);
+    const unsub = subscribeToStationsByCity(selectedCity, (data) => {
+      setStations(data);
+      setLoading(false);
+    });
+    return unsub;
+  }, [selectedCity]);
+
+  const filtered = stations.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -33,13 +44,11 @@ export default function Home() {
             </div>
             <select
               value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
+              onChange={(e) => { setSelectedCity(e.target.value); setSearchQuery(''); }}
               className="w-full bg-white/10 text-white border border-white/20 rounded-2xl py-3 ps-10 pe-4 focus:ring-2 focus:ring-white/30 outline-none appearance-none cursor-pointer font-bold"
             >
               {cities.map((city) => (
-                <option key={city} value={city} className="text-gray-900">
-                  {city}
-                </option>
+                <option key={city} value={city} className="text-gray-900">{city}</option>
               ))}
             </select>
           </div>
@@ -60,26 +69,19 @@ export default function Home() {
       </header>
 
       <main className="px-5 py-6">
-        {/* Simple Map Visualization */}
+        {/* Map visualization */}
         <div className="mb-8 overflow-hidden rounded-[32px] h-48 bg-slate-100 border border-gray-200 relative shadow-inner">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#e5e7eb_2px,transparent_2px)] [background-size:16px_16px]" />
-          
-          {/* Mock Road */}
           <div className="absolute top-[40%] left-[-20%] w-[140%] h-8 bg-gray-300 -rotate-12 shadow-sm" />
           <div className="absolute top-[-20%] left-[60%] w-8 h-[140%] bg-gray-300 rotate-12 shadow-sm" />
-
-          {/* Station Pins */}
-          {filteredStations.map((s, idx) => (
+          {filtered.map((s, idx) => (
             <motion.div
               key={s.id}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: idx * 0.08 }}
               className="absolute cursor-pointer group"
-              style={{
-                top: `${20 + (idx * 25) % 60}%`,
-                left: `${15 + (idx * 35) % 70}%`
-              }}
+              style={{ top: `${20 + (idx * 25) % 60}%`, left: `${15 + (idx * 35) % 70}%` }}
             >
               <div className={cn(
                 "w-8 h-8 rounded-full rounded-be-none flex items-center justify-center -rotate-45 shadow-lg border-2 border-white transition-transform group-hover:scale-110",
@@ -95,10 +97,14 @@ export default function Home() {
         </div>
 
         <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">{t('near')}</h2>
-        
-        <div className="space-y-1">
-          {filteredStations.length > 0 ? (
-            filteredStations.map((s) => (
+
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 size={36} className="text-orange-500 animate-spin" />
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="space-y-1">
+            {filtered.map((s) => (
               <motion.div
                 key={s.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -107,14 +113,14 @@ export default function Home() {
               >
                 <StationCard station={s} />
               </motion.div>
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-2">⛽</div>
-              <p className="text-gray-400 font-medium">{t('empty')}</p>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-2">⛽</div>
+            <p className="text-gray-400 font-medium">{t('empty')}</p>
+          </div>
+        )}
       </main>
     </div>
   );
