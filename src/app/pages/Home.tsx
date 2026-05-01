@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { StationCard } from '../components/StationCard';
 import { cities, type Station } from '../lib/data';
@@ -13,15 +15,24 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(!!auth.currentUser);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) setAuthReady(true);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
     setLoading(true);
     const unsub = subscribeToStationsByCity(selectedCity, (data) => {
       setStations(data);
       setLoading(false);
     });
     return unsub;
-  }, [selectedCity]);
+  }, [selectedCity, authReady]);
 
   const filtered = stations.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
