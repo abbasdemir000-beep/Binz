@@ -96,6 +96,7 @@ export async function approveStation(
     type: data.type,
     address: data.address || '',
     note: data.note || '',
+    status: 'approved',
     crowd: null,
     wait: 'Unknown',
     fresh: serverTimestamp(),
