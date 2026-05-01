@@ -145,11 +145,11 @@ export async function getFavoriteStations(ids: string[]): Promise<Station[]> {
 
 export async function seedInitialData(): Promise<void> {
   const snap = await getDocs(collection(db, 'stations'));
-  if (snap.size >= 10) return;
+  if (snap.size >= 16) return;
 
   const batch = writeBatch(db);
   mockStations.forEach((s) => {
-    const ref = doc(collection(db, 'stations'));
+    const ref = doc(db, 'stations', s.id);
     batch.set(ref, {
       name: s.name,
       city: s.city,
