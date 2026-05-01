@@ -1,3 +1,5 @@
+import { db } from "../../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'motion/react';
 import { ShieldCheck, Check, X, AlertCircle } from 'lucide-react';
@@ -65,16 +67,24 @@ export default function Admin() {
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleApprove(p.id)}
+                    onClick={async () => {
+                      await updateDoc(doc(db, "stations", p.id), {
+                        status: "approved"
+                      });
+                    }}
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all"
                   >
-                    <Check size={18} /> {t('approve')}
+                    <Check size={18} /> موافقة
                   </button>
                   <button
-                    onClick={() => handleReject(p.id)}
+                    onClick={async () => {
+                      await updateDoc(doc(db, "stations", p.id), {
+                        status: "rejected"
+                      });
+                    }}
                     className="flex-1 bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all border border-red-100"
                   >
-                    <X size={18} /> {t('reject')}
+                    <X size={18} /> رفض
                   </button>
                 </div>
               </motion.div>
