@@ -39,9 +39,17 @@ export function subscribeToStationsByCity(
   callback: (stations: Station[]) => void
 ): () => void {
   const q = query(collection(db, 'stations'), where('city', '==', city));
-  return onSnapshot(q, (snap) =>
-    callback(snap.docs.map((d) => docToStation(d.id, d.data())))
-  );
+  return onSnapshot(q, (snap) => {
+    console.log(`[Binz] stations snapshot for "${city}": ${snap.size} docs`);
+    const stations = snap.docs
+      .filter((d) => {
+        const status = d.data().status;
+        return !status || status === 'approved';
+      })
+      .map((d) => docToStation(d.id, d.data()));
+    console.log(`[Binz] after status filter: ${stations.length} stations`);
+    callback(stations);
+  });
 }
 
 export function subscribeToStation(
@@ -79,9 +87,10 @@ export async function submitStation(
 export function subscribeToPendingStations(
   callback: (stations: Record<string, any>[]) => void
 ): () => void {
-  return onSnapshot(collection(db, 'pendingStations'), (snap) =>
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-  );
+  return onSnapshot(collection(db, 'pendingStations'), (snap) => {
+    console.log(`[Binz] pendingStations snapshot: ${snap.size} docs`);
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
 }
 
 export async function approveStation(
@@ -100,9 +109,12 @@ export async function approveStation(
     crowd: null,
     wait: 'Unknown',
     fresh: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    approvedAt: serverTimestamp(),
   });
   batch.delete(doc(db, 'pendingStations', pendingId));
   await batch.commit();
+  console.log(`[Binz] approved station "${data.name}" (city: ${data.city}), deleted pending ${pendingId}`);
 }
 
 export async function rejectStation(pendingId: string): Promise<void> {
@@ -146,6 +158,7 @@ export async function getFavoriteStations(ids: string[]): Promise<Station[]> {
 
 export async function seedInitialData(): Promise<void> {
   const snap = await getDocs(collection(db, 'stations'));
+  console.log(`[Binz] seedInitialData: ${snap.size} stations in DB`);
   if (snap.size >= 16) return;
 
   const batch = writeBatch(db);
@@ -159,8 +172,11 @@ export async function seedInitialData(): Promise<void> {
       wait: s.wait,
       address: s.address || '',
       note: s.note || '',
+      status: 'approved',
       fresh: serverTimestamp(),
+      createdAt: serverTimestamp(),
     });
   });
   await batch.commit();
+  console.log('[Binz] Seeded 16 stations successfully');
 }
