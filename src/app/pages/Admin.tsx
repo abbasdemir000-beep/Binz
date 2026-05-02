@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { signInAnonymously } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { useLanguage } from '../context/LanguageContext';
 import {
   subscribeToPendingStations, approveStation,
@@ -54,9 +52,8 @@ export default function Admin() {
   const handleSeed = async () => {
     setSeeding(true);
     try {
-      if (!auth.currentUser) await signInAnonymously(auth);
       await seedInitialData();
-      toast.success('16 sample stations added across all 8 cities!');
+      toast.success('Sample stations added across all cities!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to seed data');
     } finally {
@@ -75,29 +72,17 @@ export default function Admin() {
       </header>
 
       <main className="px-6 py-8">
-        <button
-          onClick={handleSeed}
-          disabled={seeding}
-          className="w-full mb-6 bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-60"
-        >
+        <button onClick={handleSeed} disabled={seeding} className="w-full mb-6 bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-60">
           {seeding ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
-          {seeding ? 'Seeding database...' : '🌱 Seed Sample Stations (all 8 cities)'}
+          {seeding ? 'Seeding database...' : '🌱 Seed Sample Stations'}
         </button>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 size={32} className="text-orange-500 animate-spin" />
-          </div>
+          <div className="flex justify-center py-20"><Loader2 size={32} className="text-orange-500 animate-spin" /></div>
         ) : pending.length > 0 ? (
           <div className="space-y-4">
             {pending.map((p, idx) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="bg-white rounded-[32px] p-6 shadow-md border-s-8 border-orange-500"
-              >
+              <motion.div key={p.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }} className="bg-white rounded-[32px] p-6 shadow-md border-s-8 border-orange-500">
                 <div className="mb-4">
                   <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
                   <div className="flex gap-2 mt-1 flex-wrap">
@@ -108,27 +93,15 @@ export default function Admin() {
                   {p.note && <p className="text-xs text-gray-400 mt-1">{p.note}</p>}
                 </div>
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => handleApprove(p)}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Check size={18} /> {t('approve')}
-                  </button>
-                  <button
-                    onClick={() => handleReject(p.id)}
-                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all border border-red-100"
-                  >
-                    <X size={18} /> {t('reject')}
-                  </button>
+                  <button onClick={() => handleApprove(p)} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all"><Check size={18} /> {t('approve')}</button>
+                  <button onClick={() => handleReject(p.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all border border-red-100"><X size={18} /> {t('reject')}</button>
                 </div>
               </motion.div>
             ))}
           </div>
         ) : (
           <div className="text-center py-20 flex flex-col items-center">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <AlertCircle size={32} className="text-gray-300" />
-            </div>
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4"><AlertCircle size={32} className="text-gray-300" /></div>
             <p className="text-gray-400 font-bold">No pending reviews</p>
             <p className="text-gray-400 text-sm mt-1">Everything is up to date!</p>
           </div>
