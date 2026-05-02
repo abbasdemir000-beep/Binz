@@ -1,59 +1,69 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import {
-  User, onAuthStateChanged, signInAnonymously,
-  signInWithPhoneNumber, RecaptchaVerifier, ConfirmationResult, signOut,
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { supabase } from '../lib/firebase';
+
+interface AppUser {
+  uid: string;
+  id: string;
+  phoneNumber?: string | null;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   loginAnonymously: () => Promise<void>;
-  sendOTP: (phone: string) => Promise<ConfirmationResult>;
-  confirmOTP: (result: ConfirmationResult, otp: string) => Promise<void>;
+  sendOTP: (phone: string) => Promise<any>;
+  confirmOTP: (result: any, otp: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let recaptchaVerifier: RecaptchaVerifier | null = null;
+function mapUser(user: any): AppUser | null {
+  if (!user) return null;
+  return {
+    uid: user.id,
+    id: user.id,
+    phoneNumber: user.phone ?? null,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(mapUser(data.user));
       setLoading(false);
     });
-    return unsub;
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(mapUser(session?.user ?? null));
+      setLoading(false);
+    });
+
+    return () => data.subscription.unsubscribe();
   }, []);
 
   const loginAnonymously = async () => {
-    await signInAnonymously(auth);
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) throw error;
   };
 
-  const sendOTP = async (phone: string): Promise<ConfirmationResult> => {
-    if (!recaptchaVerifier) {
-      recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-      });
-    }
-    try {
-      return await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
-    } catch (err) {
-      recaptchaVerifier = null;
-      throw err;
-    }
+  const sendOTP = async (phone: string): Promise<any> => {
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) throw error;
+    return { phone };
   };
 
-  const confirmOTP = async (result: ConfirmationResult, otp: string) => {
-    await result.confirm(otp);
+  const confirmOTP = async (result: any, otp: string) => {
+    const { error } = await supabase.auth.verifyOtp({ phone: result.phone, token: otp, type: 'sms' });
+    if (error) throw error;
   };
 
   const logout = async () => {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
