@@ -1,105 +1,138 @@
-import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc,
-  updateDoc, deleteDoc, onSnapshot, query, where,
-  serverTimestamp, Timestamp, writeBatch,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './firebase';
 import { type Station, mockStations } from './data';
 
-function formatFresh(ts: Timestamp): string {
-  const s = Math.floor((Date.now() - ts.toMillis()) / 1000);
-  if (s < 60) return 'Just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min ago`;
-  return `${Math.floor(m / 60)}h ago`;
-}
-
-function docToStation(id: string, data: Record<string, any>): Station {
-  const fresh =
-    data.fresh && typeof data.fresh.toMillis === 'function'
-      ? formatFresh(data.fresh as Timestamp)
-      : (data.fresh as string) || 'Unknown';
+function dbToStation(row: Record<string, any>): Station {
   return {
-    id,
-    name: data.name,
-    city: data.city,
-    type: data.type,
-    crowd: data.crowd ?? null,
-    wait: data.wait,
-    fresh,
-    address: data.address,
-    note: data.note,
+    id: String(row.id),
+    name: row.name,
+    city: row.city,
+    type: row.type,
+    crowd: row.crowd ?? null,
+    wait: row.wait ?? 'Unknown',
+    fresh: row.fresh ?? row.updated_at ?? row.created_at ?? 'Unknown',
+    address: row.address ?? '',
+    note: row.note ?? '',
   };
 }
-
-// ─── Stations ────────────────────────────────────────────────────────────────
 
 export function subscribeToStationsByCity(
   city: string,
   callback: (stations: Station[]) => void
 ): () => void {
-  const q = query(collection(db, 'stations'), where('city', '==', city));
-  return onSnapshot(q, (snap) => {
-    console.log(`[Binz] stations snapshot for "${city}": ${snap.size} docs`);
-    const stations = snap.docs
-      .filter((d) => {
-        const status = d.data().status;
-        return !status || status === 'approved';
-      })
-      .map((d) => docToStation(d.id, d.data()));
-    console.log(`[Binz] after status filter: ${stations.length} stations`);
-    callback(stations);
-  });
+  let active = true;
+
+  async function load() {
+    const { data, error } = await supabase
+      .from('stations')
+      .select('*')
+      .eq('city', city)
+      .eq('status', 'approved');
+
+    if (!active) return;
+    if (error) {
+      console.error('[Binz] Supabase stations error:', error.message);
+      callback([]);
+      return;
+    }
+    callback((data ?? []).map(dbToStation));
+  }
+
+  load();
+
+  const channel = supabase
+    .channel(`stations-${city}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, load)
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
 }
 
 export function subscribeToStation(
   stationId: string,
   callback: (station: Station | null) => void
 ): () => void {
-  return onSnapshot(doc(db, 'stations', stationId), (snap) =>
-    callback(snap.exists() ? docToStation(snap.id, snap.data()) : null)
-  );
+  let active = true;
+
+  async function load() {
+    const { data, error } = await supabase
+      .from('stations')
+      .select('*')
+      .eq('id', stationId)
+      .maybeSingle();
+
+    if (!active) return;
+    if (error) {
+      console.error('[Binz] Supabase station error:', error.message);
+      callback(null);
+      return;
+    }
+    callback(data ? dbToStation(data) : null);
+  }
+
+  load();
+
+  const channel = supabase
+    .channel(`station-${stationId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, load)
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function reportCrowd(stationId: string, crowd: number): Promise<void> {
-  const wait =
-    crowd < 50 ? '15 min' : crowd < 70 ? '45 min' : '90+ min';
-  await updateDoc(doc(db, 'stations', stationId), {
-    crowd,
-    wait,
-    fresh: serverTimestamp(),
-  });
+  const wait = crowd < 50 ? '15 min' : crowd < 70 ? '45 min' : '90+ min';
+  const { error } = await supabase
+    .from('stations')
+    .update({ crowd, wait, fresh: new Date().toISOString() })
+    .eq('id', stationId);
+  if (error) console.error('[Binz] reportCrowd error:', error.message);
 }
-
-// ─── Pending Stations ─────────────────────────────────────────────────────────
 
 export async function submitStation(
   data: { name: string; city: string; type: string; address: string; note?: string },
   userId: string
 ): Promise<void> {
-  await addDoc(collection(db, 'pendingStations'), {
-    ...data,
-    submittedBy: userId,
-    submittedAt: serverTimestamp(),
-  });
+  const { error } = await supabase.from('pending_stations').insert([{ ...data, submitted_by: userId }]);
+  if (error) console.error('[Binz] submitStation error:', error.message);
 }
 
 export function subscribeToPendingStations(
   callback: (stations: Record<string, any>[]) => void
 ): () => void {
-  return onSnapshot(collection(db, 'pendingStations'), (snap) => {
-    console.log(`[Binz] pendingStations snapshot: ${snap.size} docs`);
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  });
+  let active = true;
+
+  async function load() {
+    const { data, error } = await supabase.from('pending_stations').select('*');
+    if (!active) return;
+    if (error) {
+      console.error('[Binz] pending stations error:', error.message);
+      callback([]);
+      return;
+    }
+    callback(data ?? []);
+  }
+
+  load();
+
+  const channel = supabase
+    .channel('pending-stations')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_stations' }, load)
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
 }
 
-export async function approveStation(
-  pendingId: string,
-  data: Record<string, any>
-): Promise<void> {
-  const batch = writeBatch(db);
-  const newRef = doc(collection(db, 'stations'));
-  batch.set(newRef, {
+export async function approveStation(pendingId: string, data: Record<string, any>): Promise<void> {
+  const { error: insertError } = await supabase.from('stations').insert([{
     name: data.name,
     city: data.city,
     type: data.type,
@@ -108,75 +141,100 @@ export async function approveStation(
     status: 'approved',
     crowd: null,
     wait: 'Unknown',
-    fresh: serverTimestamp(),
-    createdAt: serverTimestamp(),
-    approvedAt: serverTimestamp(),
-  });
-  batch.delete(doc(db, 'pendingStations', pendingId));
-  await batch.commit();
-  console.log(`[Binz] approved station "${data.name}" (city: ${data.city}), deleted pending ${pendingId}`);
+    fresh: new Date().toISOString(),
+  }]);
+
+  if (insertError) {
+    console.error('[Binz] approveStation insert error:', insertError.message);
+    return;
+  }
+
+  const { error: deleteError } = await supabase
+    .from('pending_stations')
+    .delete()
+    .eq('id', pendingId);
+
+  if (deleteError) console.error('[Binz] approveStation delete error:', deleteError.message);
 }
 
 export async function rejectStation(pendingId: string): Promise<void> {
-  await deleteDoc(doc(db, 'pendingStations', pendingId));
+  const { error } = await supabase.from('pending_stations').delete().eq('id', pendingId);
+  if (error) console.error('[Binz] rejectStation error:', error.message);
 }
 
-// ─── Favorites ────────────────────────────────────────────────────────────────
+export function subscribeToFavorites(userId: string, callback: (stationIds: string[]) => void): () => void {
+  let active = true;
 
-export function subscribeToFavorites(
-  userId: string,
-  callback: (stationIds: string[]) => void
-): () => void {
-  return onSnapshot(doc(db, 'userFavorites', userId), (snap) =>
-    callback(snap.exists() ? (snap.data().stationIds as string[]) || [] : [])
-  );
+  async function load() {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('station_id')
+      .eq('user_id', userId);
+
+    if (!active) return;
+    if (error) {
+      console.error('[Binz] favorites error:', error.message);
+      callback([]);
+      return;
+    }
+    callback((data ?? []).map((r: any) => String(r.station_id)));
+  }
+
+  load();
+
+  const channel = supabase
+    .channel(`favorites-${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_favorites' }, load)
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
 }
 
-export async function toggleFavorite(
-  userId: string,
-  stationId: string,
-  current: string[]
-): Promise<void> {
-  const next = current.includes(stationId)
-    ? current.filter((id) => id !== stationId)
-    : [...current, stationId];
-  await setDoc(doc(db, 'userFavorites', userId), { stationIds: next }, { merge: true });
+export async function toggleFavorite(userId: string, stationId: string, current: string[]): Promise<void> {
+  if (current.includes(stationId)) {
+    await supabase
+      .from('user_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('station_id', stationId);
+  } else {
+    await supabase.from('user_favorites').insert([{ user_id: userId, station_id: stationId }]);
+  }
 }
 
 export async function getFavoriteStations(ids: string[]): Promise<Station[]> {
   if (!ids.length) return [];
-  const results = await Promise.all(
-    ids.map(async (id) => {
-      const snap = await getDoc(doc(db, 'stations', id));
-      return snap.exists() ? docToStation(snap.id, snap.data()) : null;
-    })
-  );
-  return results.filter((s): s is Station => s !== null);
+  const { data, error } = await supabase.from('stations').select('*').in('id', ids);
+  if (error) {
+    console.error('[Binz] getFavoriteStations error:', error.message);
+    return [];
+  }
+  return (data ?? []).map(dbToStation);
 }
 
-// ─── Seed ────────────────────────────────────────────────────────────────────
-
 export async function seedInitialData(): Promise<void> {
-  const snap = await getDocs(collection(db, 'stations'));
-  console.log(`[Binz] seedInitialData: ${snap.size} stations in DB`);
-  if (snap.size >= 16) return;
+  const { count } = await supabase
+    .from('stations')
+    .select('*', { count: 'exact', head: true });
 
-  const batch = writeBatch(db);
-  mockStations.forEach((s) => {
-    const ref = doc(db, 'stations', s.id);
-    batch.set(ref, {
-      name: s.name,
-      city: s.city,
-      type: s.type,
-      crowd: s.crowd,
-      wait: s.wait,
-      address: s.address || '',
-      note: s.note || '',
-      status: 'approved',
-      fresh: serverTimestamp(),
-      createdAt: serverTimestamp(),
-    });
-  });
-  await batch.commit();
-  console.log('[Binz] Seeded 16 stations successfully');
+  if ((count ?? 0) >= 16) return;
+
+  const rows = mockStations.map((s) => ({
+    id: s.id,
+    name: s.name,
+    city: s.city,
+    type: s.type,
+    crowd: s.crowd,
+    wait: s.wait,
+    address: s.address || '',
+    note: s.note || '',
+    status: 'approved',
+    fresh: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from('stations').upsert(rows);
+  if (error) console.error('[Binz] seedInitialData error:', error.message);
 }
